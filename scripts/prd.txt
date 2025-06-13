@@ -1,0 +1,81 @@
+# Product Name: LeadHarvester
+
+## Purpose:
+Build a web application that enables users to generate verified, enriched B2B lead lists based on business category and geographic location. The tool should automate data collection from Google Maps, enrich leads using multiple APIs, verify email addresses, and export leads in CSV format. Optionally, users can sync leads into the Meadowlark platform for automated outreach.
+
+## Core Features:
+
+### 1. Lead Input Interface
+- Simple UI where users can enter:
+  - Business category (e.g., “Mexican restaurants”)
+  - Location (e.g., “Austin, TX” or “All Texas cities >10k population”)
+- Dropdowns and input validation
+
+### 2. Lead Scraping via Serper.dev
+- Use the Serper.dev API to search Google Maps for matching businesses
+- For each result, collect:
+  - Business name
+  - Business type/category
+  - Address (city, state)
+  - Phone number
+  - Website
+  - Google rating
+  - Number of reviews
+  - Google Maps link
+
+### 3. Lead Enrichment
+- Use external APIs (Kitt, Prospeo, DropContact, LeadMagic) to:
+  - Find owner name
+  - Extract personal and generic emails
+  - Identify LinkedIn URL
+  - Pull social profiles (Facebook/Instagram)
+- If no email is found, use AI Web Researcher to scrape from the business website
+
+### 4. Email Verification
+- Integrate with MillionVerifier to verify all collected emails
+- Mark each lead with:
+  - `email_verified: true/false`
+  - `verification_source`
+
+### 5. Storage in Supabase
+- Create `leads` table with:
+  - Lead data
+  - Enrichment source
+  - Verification status
+  - Batch ID for tracking
+- Each lead is tied to a user via `user_id`
+
+### 6. Lead Review Table (UI)
+- Display enriched leads in a table with:
+  - Search, filter, and sort
+  - CSV export button
+  - “Push to Meadowlark” button (API call)
+
+### 7. Credit System
+- Track how many leads a user has enriched or verified
+- Deduct credits for each:
+  - Verified lead
+  - Email enrichment
+- Prevent export or sync if credits are exhausted
+
+### 8. Authentication
+- Supabase Auth or Clerk for secure user logins
+- Each user’s leads are isolated
+
+## Tech Stack:
+- Frontend: Next.js App Router, Tailwind CSS, ShadCN
+- Backend: Supabase (auth, database)
+- Integrations:
+  - Serper.dev (scraping)
+  - Kitt, DropContact, LeadMagic, Prospeo (enrichment)
+  - MillionVerifier (email verification)
+  - Meadowlark (optional sync)
+
+## MVP Goal:
+Launch a working version that allows users to:
+- Input a category + location
+- Scrape and enrich leads
+- Verify emails
+- Download CSV of verified leads
+
+Meadowlark sync, multi-user support, and billing are phase 2.
