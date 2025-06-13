@@ -4,6 +4,9 @@ import React, { useState, useEffect } from 'react'
 import { Lead, getLeads, deleteLead } from '@/lib/supabase'
 import LeadTable from '@/components/LeadTable'
 import { BarChart3, Users, TrendingUp, Target } from 'lucide-react'
+import RequireAuth from '../../components/RequireAuth'
+import SignOutButton from '../../components/SignOutButton'
+import UserInfo from '../../components/UserInfo'
 
 export default function DashboardPage() {
   const [leads, setLeads] = useState<Lead[]>([])
@@ -55,80 +58,88 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-2">
-          Overview of your lead generation and management activities
-        </p>
+    <RequireAuth>
+      <div className="space-y-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+            <p className="text-gray-600 mt-2">
+              Overview of your lead generation and management activities
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <UserInfo />
+            <SignOutButton />
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <Users className="h-8 w-8 text-blue-600" />
+              <div className="ml-4">
+                <p className="text-2xl font-semibold text-gray-900">{stats.total}</p>
+                <p className="text-sm text-gray-600">Total Leads</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <Target className="h-8 w-8 text-green-600" />
+              <div className="ml-4">
+                <p className="text-2xl font-semibold text-gray-900">{stats.new}</p>
+                <p className="text-sm text-gray-600">New Leads</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <BarChart3 className="h-8 w-8 text-yellow-600" />
+              <div className="ml-4">
+                <p className="text-2xl font-semibold text-gray-900">{stats.contacted}</p>
+                <p className="text-sm text-gray-600">Contacted</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <TrendingUp className="h-8 w-8 text-orange-600" />
+              <div className="ml-4">
+                <p className="text-2xl font-semibold text-gray-900">{stats.qualified}</p>
+                <p className="text-sm text-gray-600">Qualified</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <Users className="h-8 w-8 text-purple-600" />
+              <div className="ml-4">
+                <p className="text-2xl font-semibold text-gray-900">{stats.converted}</p>
+                <p className="text-sm text-gray-600">Converted</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Leads Table */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Recent Leads</h2>
+          </div>
+          <div className="p-6">
+            <LeadTable 
+              leads={leads} 
+              onEdit={handleEdit} 
+              onDelete={handleDelete} 
+            />
+          </div>
+        </div>
       </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <Users className="h-8 w-8 text-blue-600" />
-            <div className="ml-4">
-              <p className="text-2xl font-semibold text-gray-900">{stats.total}</p>
-              <p className="text-sm text-gray-600">Total Leads</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <Target className="h-8 w-8 text-green-600" />
-            <div className="ml-4">
-              <p className="text-2xl font-semibold text-gray-900">{stats.new}</p>
-              <p className="text-sm text-gray-600">New Leads</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <BarChart3 className="h-8 w-8 text-yellow-600" />
-            <div className="ml-4">
-              <p className="text-2xl font-semibold text-gray-900">{stats.contacted}</p>
-              <p className="text-sm text-gray-600">Contacted</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <TrendingUp className="h-8 w-8 text-orange-600" />
-            <div className="ml-4">
-              <p className="text-2xl font-semibold text-gray-900">{stats.qualified}</p>
-              <p className="text-sm text-gray-600">Qualified</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <Users className="h-8 w-8 text-purple-600" />
-            <div className="ml-4">
-              <p className="text-2xl font-semibold text-gray-900">{stats.converted}</p>
-              <p className="text-sm text-gray-600">Converted</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Leads Table */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Recent Leads</h2>
-        </div>
-        <div className="p-6">
-          <LeadTable 
-            leads={leads} 
-            onEdit={handleEdit} 
-            onDelete={handleDelete} 
-          />
-        </div>
-      </div>
-    </div>
+    </RequireAuth>
   )
 } 

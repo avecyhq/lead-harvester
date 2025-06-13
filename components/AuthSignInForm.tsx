@@ -43,6 +43,9 @@ export default function AuthSignInForm() {
       <Button type="submit" disabled={loading} className="w-full">
         {loading ? "Signing in..." : "Sign In"}
       </Button>
+      <div className="text-center mt-2">
+        <a href="/auth/reset" className="text-sm text-blue-600 hover:underline">Forgot Password?</a>
+      </div>
     </form>
   );
 } 
