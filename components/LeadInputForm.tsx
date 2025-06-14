@@ -85,6 +85,7 @@ export default function LeadInputForm({ onSubmit }: { onSubmit?: (data: { busine
     setLoading(true);
     setError(null);
     setSuccess(null);
+    let timeoutId: NodeJS.Timeout | null = null;
     try {
       // Split cities by line, trim, and filter out empty lines
       const cities = data.cities
@@ -97,6 +98,11 @@ export default function LeadInputForm({ onSubmit }: { onSubmit?: (data: { busine
         cities: cities.join(', '),
       });
       router.replace(`?${params.toString()}`);
+      // Timeout after 30 seconds
+      timeoutId = setTimeout(() => {
+        setLoading(false);
+        setError('Request timed out. Please try again.');
+      }, 30000);
       // NEW: Call the scraping API
       const response = await fetch('/api/scrape', {
         method: 'POST',
@@ -107,14 +113,21 @@ export default function LeadInputForm({ onSubmit }: { onSubmit?: (data: { busine
           pages: [1], // You can update this to allow user selection
         }),
       });
-      const result = await response.json();
+      console.log('Scrape API response:', response);
+      const result = await response.json().catch((err) => {
+        console.error('Error parsing JSON:', err);
+        throw new Error('Invalid server response.');
+      });
+      console.log('Scrape result:', result);
       if (!result.success) throw new Error(result.error || 'Scrape failed');
       setSuccess('Scrape complete! Redirecting to results...');
       setTimeout(() => router.push('/dashboard'), 1500);
       if (onSubmit) await onSubmit({ businessCategory: data.businessCategory, cities });
     } catch (err: any) {
+      console.error('Scrape error:', err);
       setError(err?.message || 'An error occurred.');
     } finally {
+      if (timeoutId) clearTimeout(timeoutId);
       setLoading(false);
     }
   };

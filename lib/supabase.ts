@@ -33,6 +33,17 @@ export interface LeadInsert {
   notes?: string
 }
 
+// Add Batch type for scrape_batches
+export interface Batch {
+  id: string
+  user_id: string
+  category: string
+  cities: string[]
+  pages: number[]
+  created_at: string
+  total_leads: number
+}
+
 // Database functions
 export const getLeads = async (): Promise<Lead[]> => {
   const { data, error } = await supabase
@@ -89,4 +100,19 @@ export const deleteLead = async (id: string): Promise<void> => {
     console.error('Error deleting lead:', error)
     throw error
   }
+}
+
+// Fetch all batches for the current user, ordered by created_at desc
+export const getBatches = async (): Promise<Batch[]> => {
+  const { data, error } = await supabase
+    .from('scrape_batches')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching batches:', error)
+    throw error
+  }
+
+  return data || []
 } 

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Lead, getLeads, deleteLead } from '@/lib/supabase'
+import { Lead, getLeads, deleteLead, Batch, getBatches } from '@/lib/supabase'
 import LeadTable from '@/components/LeadTable'
 import { BarChart3, Users, TrendingUp, Target } from 'lucide-react'
 import RequireAuth from '../../components/RequireAuth'
@@ -10,21 +10,25 @@ import UserInfo from '../../components/UserInfo'
 
 export default function DashboardPage() {
   const [leads, setLeads] = useState<Lead[]>([])
+  const [batches, setBatches] = useState<Batch[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchLeads = async () => {
+    const fetchData = async () => {
       try {
-        const data = await getLeads()
-        setLeads(data)
+        const [leadsData, batchesData] = await Promise.all([
+          getLeads(),
+          getBatches(),
+        ])
+        setLeads(leadsData)
+        setBatches(batchesData)
       } catch (error) {
-        console.error('Error fetching leads:', error)
+        console.error('Error fetching data:', error)
       } finally {
         setLoading(false)
       }
     }
-
-    fetchLeads()
+    fetchData()
   }, [])
 
   const handleEdit = (lead: Lead) => {
@@ -70,6 +74,50 @@ export default function DashboardPage() {
           <div className="flex items-center gap-4">
             <UserInfo />
             <SignOutButton />
+          </div>
+        </div>
+
+        {/* Batches Table */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Scrape History</h2>
+          </div>
+          <div className="p-6 overflow-x-auto">
+            {batches.length === 0 ? (
+              <div className="text-center text-gray-500">No scrape batches found.</div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead>
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"># Leads</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pages</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cities</th>
+                    <th className="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {batches.map((batch) => {
+                    const citySummary = batch.cities.length > 1
+                      ? `${batch.cities[0]} +${batch.cities.length - 1} more`
+                      : batch.cities[0]
+                    return (
+                      <tr key={batch.id}>
+                        <td className="px-4 py-2 whitespace-nowrap">{batch.category}</td>
+                        <td className="px-4 py-2 whitespace-nowrap">{new Date(batch.created_at).toLocaleString()}</td>
+                        <td className="px-4 py-2 whitespace-nowrap">{batch.total_leads}</td>
+                        <td className="px-4 py-2 whitespace-nowrap">{Array.isArray(batch.pages) ? batch.pages.join(', ') : batch.pages}</td>
+                        <td className="px-4 py-2 whitespace-nowrap">{citySummary}</td>
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          <button className="text-blue-600 hover:underline text-sm font-medium">View Leads</button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 
