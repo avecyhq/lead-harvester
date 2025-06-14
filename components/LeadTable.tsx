@@ -35,9 +35,12 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, onEdit, onDelete }) => {
     const aValue = a[sortColumn]
     const bValue = b[sortColumn]
 
-    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
-    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
-    return 0
+    if (aValue == null && bValue == null) return 0;
+    if (aValue == null) return sortDirection === 'asc' ? -1 : 1;
+    if (bValue == null) return sortDirection === 'asc' ? 1 : -1;
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
   })
 
   if (leads.length === 0) {
