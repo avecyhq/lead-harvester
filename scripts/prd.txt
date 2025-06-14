@@ -1,81 +1,192 @@
 # Product Name: LeadHarvester
 
 ## Purpose:
-Build a web application that enables users to generate verified, enriched B2B lead lists based on business category and geographic location. The tool should automate data collection from Google Maps, enrich leads using multiple APIs, verify email addresses, and export leads in CSV format. Optionally, users can sync leads into the Meadowlark platform for automated outreach.
+Build a web application that enables users to generate verified, enriched B2B lead lists based on business category and geographic location. The tool automates data collection from Google Maps using the Serper.dev API, enriches leads using third-party APIs and AI, verifies emails, and exports lead data in CSV format. Optionally, users can sync their leads into the Meadowlark platform for automated outreach.
 
-## Core Features:
+---
+
+## Core Features
 
 ### 1. Lead Input Interface
-- Simple UI where users can enter:
-  - Business category (e.g., “Mexican restaurants”)
-  - Location (e.g., “Austin, TX” or “All Texas cities >10k population”)
-- Dropdowns and input validation
+- Form where users can input:
+  - A business category (e.g., “Mexican restaurants”)
+  - A multiline list of cities (one per line)
+  - A selection of which pages of Google Maps to scrape (Page 1, 2, and/or 3)
+- Client-side and backend validation
+- **City Limit:** A maximum of 25 cities per request (to prevent timeouts and API overuse)
 
-### 2. Lead Scraping via Serper.dev
-- Use the Serper.dev API to search Google Maps for matching businesses
-- For each result, collect:
+---
+
+### 2. Bulk City + Multi-Page Scraping Logic
+- For each city and selected page, run a separate query via the Serper.dev API
+- Simulate pagination via query phrasing or offsets
+- Each Serper result should extract:
   - Business name
-  - Business type/category
-  - Address (city, state)
-  - Phone number
+  - Address (with city and state)
   - Website
-  - Google rating
+  - Phone number
+  - Google Maps URL
+  - Business type/category
+  - Average rating
   - Number of reviews
-  - Google Maps link
+- Store with metadata:
+  - `query_source` (e.g., “Austin, TX – Page 2”)
+  - `page_number`: 1, 2, or 3
+  - `batch_id`: UUID for grouping
+- Deduplicate results across pages and cities using:
+  - Website domain
+  - Phone number
+  - Business name + address combo
 
-### 3. Lead Enrichment
-- Use external APIs (Kitt, Prospeo, DropContact, LeadMagic) to:
-  - Find owner name
-  - Extract personal and generic emails
-  - Identify LinkedIn URL
-  - Pull social profiles (Facebook/Instagram)
-- If no email is found, use AI Web Researcher to scrape from the business website
+---
+
+### 3. Lead Enrichment (Updated)
+- Enrich each lead with:
+  - Owner’s full name
+  - Personal and/or business email
+  - LinkedIn profile
+  - Facebook and Instagram links
+
+- **AI-Powered Owner Detection:**
+  - Use GPT-4o or Claude Sonnet to extract the owner's name with over 90% confidence
+  - The AI should:
+    - Visit the company’s website
+    - Search Google and LinkedIn
+    - Cross-check information
+  - Output structured JSON:
+    ```json
+    {
+      "result": "First Last",
+      "confidence": 0.95,
+      "reasoning": "Found LinkedIn profile indicating owner role",
+      "stepsTaken": [ ... ],
+      "tokensUsed": 4562,
+      "costEstimate": "$0.0008"
+    }
+    ```
+  - Only store the result if `confidence >= 0.90`. Otherwise, flag the lead for manual review.
+
+- **Third-Party Enrichment APIs:**
+  - Use Kitt, Prospeo, DropContact, LeadMagic to:
+    - Find emails, LinkedIn profiles, social presence
+    - Confirm or augment owner data
+
+- **Firecrawl Integration:**
+  - If enrichment APIs and AI owner lookup fail or return low confidence:
+    - Use [Firecrawl](https://github.com/mendableai/firecrawl) to crawl the business website
+    - Extract:
+      - Owner mentions from "About", "Team", or "Contact" pages
+      - Footer links to Facebook and Instagram
+      - Optional: summarize what the company does
+  - Results are stored only if confidence or clarity is ≥ 90%
+
+---
 
 ### 4. Email Verification
-- Integrate with MillionVerifier to verify all collected emails
-- Mark each lead with:
+- Use the MillionVerifier API to validate all found emails
+- Tag emails with:
   - `email_verified: true/false`
-  - `verification_source`
+  - `verification_source: "MillionVerifier"`
 
-### 5. Storage in Supabase
-- Create `leads` table with:
-  - Lead data
-  - Enrichment source
-  - Verification status
-  - Batch ID for tracking
-- Each lead is tied to a user via `user_id`
+---
 
-### 6. Lead Review Table (UI)
-- Display enriched leads in a table with:
-  - Search, filter, and sort
-  - CSV export button
-  - “Push to Meadowlark” button (API call)
+### 5. Supabase Database Storage
+- Create `leads` table with fields:
+  - `id`, `business_name`, `address`, `website`, `phone`, `rating`, `rating_count`
+  - `query_source`, `page_number`, `batch_id`, `user_id`
+  - `owner_name`, `owner_confidence`, `owner_reasoning`, `owner_source`
+  - `linkedin_url`, `facebook_url`, `instagram_url`, `email`
+  - `email_verified`, `enrichment_status`, `sync_status`
+  - `created_at`
 
-### 7. Credit System
-- Track how many leads a user has enriched or verified
-- Deduct credits for each:
-  - Verified lead
-  - Email enrichment
-- Prevent export or sync if credits are exhausted
+- Create `scrape_batches` table with fields:
+  - `id` (UUID)
+  - `user_id`
+  - `category`
+  - `cities` (text[])
+  - `pages` (int[])
+  - `total_leads`
+  - `created_at`
 
-### 8. Authentication
-- Supabase Auth or Clerk for secure user logins
-- Each user’s leads are isolated
+- Enforce row-level security on both tables so each user can only see their own records
+
+---
+
+### 6. Lead Review Table (Frontend)
+- Show scraped and enriched leads in a searchable, sortable table
+- Each row shows:
+  - Business name
+  - Owner name (if enriched)
+  - Email
+  - City
+  - Confidence score
+- Allow users to:
+  - Filter by city, page, verification status, batch, or confidence
+  - View full reasoning or enrichment source via expandable row or modal
+  - Export selected leads as CSV
+  - Push leads to Meadowlark
+  - Re-run failed enrichments or delete individual leads
+
+---
+
+### 7. Scrape History Dashboard
+- Display a list of all previous scrape batches per user
+- For each batch, show:
+  - Category
+  - Date of scrape
+  - Number of leads
+  - Pages selected
+  - **City summary**:
+    - Show the **first city + “+X more”**
+    - Example: `Austin, TX + 24 more`
+    - Clicking expands full list via modal or tooltip
+- Actions:
+  - View leads in batch
+  - Re-export CSV
+  - Re-sync batch to Meadowlark
+  - Optionally: re-run enrichment with updated logic
+
+---
+
+### 8. Credit System
+- Assign a credit balance to each user account
+- Deduct credits for:
+  - Email enrichment (1 credit per enriched lead)
+  - Email verification (1 credit per verified email)
+- UI shows available credits and blocks actions when credits are exhausted
+- Allow admins to reset or grant credits
+
+---
+
+### 9. Authentication
+- Use Supabase Auth (magic link or email/password)
+- Ensure each user has isolated access to their data
+- Track `user_id` on every action and DB insert
+
+---
 
 ## Tech Stack:
-- Frontend: Next.js App Router, Tailwind CSS, ShadCN
-- Backend: Supabase (auth, database)
-- Integrations:
+- **Frontend**: Next.js (App Router), Tailwind CSS, ShadCN UI
+- **Backend**: Supabase (Auth, DB, RLS)
+- **External Services**:
   - Serper.dev (scraping)
-  - Kitt, DropContact, LeadMagic, Prospeo (enrichment)
+  - Prospeo, Kitt, DropContact, LeadMagic (enrichment)
   - MillionVerifier (email verification)
+  - OpenAI / Claude (AI owner lookup)
+  - Firecrawl (fallback website parsing)
   - Meadowlark (optional sync)
 
-## MVP Goal:
-Launch a working version that allows users to:
-- Input a category + location
-- Scrape and enrich leads
-- Verify emails
-- Download CSV of verified leads
+---
 
-Meadowlark sync, multi-user support, and billing are phase 2.
+## MVP Goal:
+Let a user:
+- Paste up to 25 cities
+- Select business category and pages to scrape (1–3)
+- Automatically gather and enrich leads from Google Maps
+- Identify owners using AI (confidence ≥ 90%)
+- Use Firecrawl if APIs fail
+- Verify emails
+- View lead results in a clean UI
+- Export or sync leads to Meadowlark
+- Review and re-run previous scrapes
+- All within a basic credit-limited SaaS interface

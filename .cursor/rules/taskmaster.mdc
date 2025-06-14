@@ -5,6 +5,8 @@ alwaysApply: true
 ---
 # Taskmaster Tool & Command Reference
 
+> **Project Rule:** All lead searches are limited to a maximum of 30 results per business type and city. The backend and UI enforce this limit, and users will always receive up to 30 top Google Maps listings per search.
+
 This document provides a detailed reference for interacting with Taskmaster, covering both the recommended MCP tools, suitable for integrations like Cursor, and the corresponding `task-master` CLI commands, designed for direct user interaction or fallback.
 
 **Note:** For interacting with Taskmaster programmatically or via integrated tools, using the **MCP tools is strongly recommended** due to better performance, structured data, and error handling. The CLI commands serve as a user-friendly alternative and fallback. 
