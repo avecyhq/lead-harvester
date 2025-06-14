@@ -2,6 +2,7 @@ import React from 'react'
 import './globals.css'
 import { Inter } from 'next/font/google'
 import Navigation from '@/components/Navigation'
+import SupabaseProvider from '@/components/SupabaseProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -18,12 +19,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <div className="min-h-screen bg-background">
-          <Navigation />
-          <main className="container mx-auto px-4 py-8">
-            {children}
-          </main>
-        </div>
+        <SupabaseProvider>
+          <div className="min-h-screen bg-background">
+            <Navigation />
+            <main className="container mx-auto px-4 py-8">
+              {children}
+            </main>
+          </div>
+        </SupabaseProvider>
       </body>
     </html>
   )

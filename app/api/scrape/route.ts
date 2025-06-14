@@ -46,12 +46,16 @@ export async function POST(request: Request) {
   const cookieStore = cookies();
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
   const { data: { session } } = await supabase.auth.getSession();
+  // DEBUG: Log session and request body
+  console.log('DEBUG session:', session);
+  const body = await request.clone().json().catch(() => null);
+  console.log('DEBUG request body:', body);
   if (!session) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    const { category, cities, pages } = await request.json();
+    const { category, cities, pages } = body || {};
     if (!category || !Array.isArray(cities) || !Array.isArray(pages) || cities.length === 0 || pages.length === 0) {
       return NextResponse.json({ success: false, error: 'Missing or invalid category, cities, or pages.' }, { status: 400 });
     }

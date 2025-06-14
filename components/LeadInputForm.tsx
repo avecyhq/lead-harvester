@@ -95,6 +95,21 @@ export default function LeadInputForm({ onSubmit }: { onSubmit?: (data: { busine
         cities: cities.join(', '),
       });
       router.replace(`?${params.toString()}`);
+      // NEW: Call the scraping API
+      const response = await fetch('/api/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: data.businessCategory,
+          cities,
+          pages: [1], // You can update this to allow user selection
+        }),
+      });
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error || 'Scrape failed');
+      // Optionally, show a success message or redirect to batch review
+      // For now, just log the result
+      console.log('Scrape result:', result);
       if (onSubmit) await onSubmit({ businessCategory: data.businessCategory, cities });
     } catch (err: any) {
       setError(err?.message || 'An error occurred.');
