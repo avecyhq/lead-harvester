@@ -1,12 +1,13 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '../lib/supabaseClient';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 
 export default function RequireAuth({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
+  const supabase = useSupabaseClient();
 
   useEffect(() => {
     const getSession = async () => {
@@ -28,7 +29,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
     return () => {
       listener.subscription.unsubscribe();
     };
-  }, [router]);
+  }, [router, supabase]);
 
   if (loading) {
     return (

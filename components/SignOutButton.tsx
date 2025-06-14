@@ -1,12 +1,13 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { Button } from './ui/button';
-import { supabase } from '../lib/supabaseClient';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useState } from 'react';
 
 export default function SignOutButton() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const supabase = useSupabaseClient();
 
   const handleSignOut = async () => {
     setLoading(true);

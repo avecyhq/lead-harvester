@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { supabase } from '../../../lib/supabaseClient';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { Input } from '../../../components/ui/input';
 import { Button } from '../../../components/ui/button';
 
@@ -9,6 +9,7 @@ export default function PasswordResetRequestPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const supabase = useSupabaseClient();
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -51,6 +51,7 @@ export default function LeadInputForm({ onSubmit }: { onSubmit?: (data: { busine
   const [categorySuggestions, setCategorySuggestions] = React.useState<string[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [success, setSuccess] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     // Populate form from URL params if present
@@ -83,6 +84,7 @@ export default function LeadInputForm({ onSubmit }: { onSubmit?: (data: { busine
   const onFormSubmit = async (data: FormValues) => {
     setLoading(true);
     setError(null);
+    setSuccess(null);
     try {
       // Split cities by line, trim, and filter out empty lines
       const cities = data.cities
@@ -107,9 +109,8 @@ export default function LeadInputForm({ onSubmit }: { onSubmit?: (data: { busine
       });
       const result = await response.json();
       if (!result.success) throw new Error(result.error || 'Scrape failed');
-      // Optionally, show a success message or redirect to batch review
-      // For now, just log the result
-      console.log('Scrape result:', result);
+      setSuccess('Scrape complete! Redirecting to results...');
+      setTimeout(() => router.push('/dashboard'), 1500);
       if (onSubmit) await onSubmit({ businessCategory: data.businessCategory, cities });
     } catch (err: any) {
       setError(err?.message || 'An error occurred.');
@@ -169,6 +170,7 @@ export default function LeadInputForm({ onSubmit }: { onSubmit?: (data: { busine
           )}
         </div>
         {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
+        {success && <p className="text-green-600 text-sm mt-2">{success}</p>}
         {/* Submit Button */}
         <button
           type="submit"

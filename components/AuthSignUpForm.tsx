@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { useState } from "react";
-import { supabase } from "../lib/supabaseClient";
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 
@@ -11,6 +11,7 @@ export default function AuthSignUpForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const supabase = useSupabaseClient();
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();

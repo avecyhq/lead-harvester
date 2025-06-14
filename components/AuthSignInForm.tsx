@@ -2,7 +2,7 @@
 import React from "react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../lib/supabaseClient";
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 
@@ -12,6 +12,7 @@ export default function AuthSignInForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const supabase = useSupabaseClient();
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();

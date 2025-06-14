@@ -1,9 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 
 export default function UserInfo() {
   const [email, setEmail] = useState<string | null>(null);
+  const supabase = useSupabaseClient();
 
   useEffect(() => {
     const getUser = async () => {
@@ -11,7 +12,7 @@ export default function UserInfo() {
       setEmail(user?.email ?? null);
     };
     getUser();
-  }, []);
+  }, [supabase]);
 
   if (!email) return null;
 
