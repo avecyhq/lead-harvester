@@ -41,6 +41,7 @@ Build a web application that enables users to generate verified, enriched B2B le
 ---
 
 ### 3. Lead Enrichment (Updated)
+
 - Enrich each lead with:
   - Owner’s full name
   - Personal and/or business email
@@ -48,12 +49,12 @@ Build a web application that enables users to generate verified, enriched B2B le
   - Facebook and Instagram links
 
 - **AI-Powered Owner Detection:**
-  - Use GPT-4o or Claude Sonnet to extract the owner's name with over 90% confidence
-  - The AI should:
-    - Visit the company’s website
+  - The app uses a custom async function called `enrichOwnerFromDomain(domain: string)` located in `/lib/enrich/owner.ts`
+  - This function sends a structured prompt to GPT-4o to:
+    - Visit the business website
     - Search Google and LinkedIn
-    - Cross-check information
-  - Output structured JSON:
+    - Extract and return the owner's full name
+  - The model response is parsed into structured JSON:
     ```json
     {
       "result": "First Last",
@@ -64,21 +65,23 @@ Build a web application that enables users to generate verified, enriched B2B le
       "costEstimate": "$0.0008"
     }
     ```
-  - Only store the result if `confidence >= 0.90`. Otherwise, flag the lead for manual review.
+  - The system only stores the owner’s name if `confidence >= 0.90`
+  - All results include reasoning and step-by-step logs for transparency
+  - The function includes error handling and rejects incomplete or hallucinated data
 
 - **Third-Party Enrichment APIs:**
   - Use Kitt, Prospeo, DropContact, LeadMagic to:
-    - Find emails, LinkedIn profiles, social presence
-    - Confirm or augment owner data
+    - Find verified emails, LinkedIn URLs, owner names
+    - Fill in gaps from the AI enrichment function
+    - Serve as primary or secondary sources based on confidence
 
 - **Firecrawl Integration:**
-  - If enrichment APIs and AI owner lookup fail or return low confidence:
-    - Use [Firecrawl](https://github.com/mendableai/firecrawl) to crawl the business website
-    - Extract:
-      - Owner mentions from "About", "Team", or "Contact" pages
-      - Footer links to Facebook and Instagram
-      - Optional: summarize what the company does
-  - Results are stored only if confidence or clarity is ≥ 90%
+  - If APIs and `enrichOwnerFromDomain` return no valid results or confidence < 90%:
+    - Use Firecrawl to extract structured content from the business website
+    - Look for owner mentions in About, Contact, and footer sections
+    - Extract social media links and contact info
+    - Store only if result meets confidence criteria
+
 
 ---
 
