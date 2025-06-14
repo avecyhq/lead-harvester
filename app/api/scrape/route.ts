@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { fetchSerperBusinesses } from '@/lib/serper';
 import { v4 as uuidv4 } from 'uuid';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 // Utility functions for extracting city/state will be added later
 
@@ -41,6 +43,13 @@ function extractUnit(address: string): string {
 }
 
 export async function POST(request: Request) {
+  const cookieStore = cookies();
+  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { category, cities, pages } = await request.json();
     if (!category || !Array.isArray(cities) || !Array.isArray(pages) || cities.length === 0 || pages.length === 0) {
@@ -50,6 +59,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'You can enter up to 25 cities per search.' }, { status: 400 });
     }
     const batchId = uuidv4();
+    const userId = session.user.id;
+    // Scrape all cities/pages
     const allResults = await Promise.all(
       cities.flatMap(city =>
         pages.map(page =>
@@ -57,9 +68,46 @@ export async function POST(request: Request) {
         )
       )
     );
-    // Flatten the array of arrays
+    // Flatten and deduplicate results
     const combined = allResults.flat();
-    return NextResponse.json({ success: true, batch_id: batchId, results: combined });
+    const uniqueMap = new Map();
+    for (const lead of combined) {
+      const dedupeKey = lead.website || lead.phone || (lead.business_name + '|' + lead.address);
+      if (!uniqueMap.has(dedupeKey)) {
+        uniqueMap.set(dedupeKey, lead);
+      }
+    }
+    const uniqueLeads = Array.from(uniqueMap.values());
+    // Insert batch into scrape_batches table
+    await supabase.from('scrape_batches').insert([
+      {
+        id: batchId,
+        user_id: userId,
+        category,
+        cities,
+        pages,
+        created_at: new Date().toISOString(),
+        total_leads: uniqueLeads.length
+      }
+    ]);
+    // Insert leads into leads table
+    if (uniqueLeads.length > 0) {
+      const leadsToInsert = uniqueLeads.map(lead => ({
+        ...lead,
+        user_id: userId,
+        batch_id: batchId,
+        enrichment_status: 'pending',
+        sync_status: 'pending',
+        created_at: new Date().toISOString()
+      }));
+      // Insert in batches of 1000 if needed
+      const chunkSize = 1000;
+      for (let i = 0; i < leadsToInsert.length; i += chunkSize) {
+        const chunk = leadsToInsert.slice(i, i + chunkSize);
+        await supabase.from('leads').insert(chunk);
+      }
+    }
+    return NextResponse.json({ success: true, batch_id: batchId, inserted: uniqueLeads.length });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error?.message || 'Internal server error.' }, { status: 500 });
   }
