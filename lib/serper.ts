@@ -13,6 +13,8 @@ export interface SerperBusinessResult {
   page: number;
   query_source: string;
   batch_id: string;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export async function fetchSerperBusinesses({ category, city, page, batchId }: { category: string; city: string; page: number; batchId: string; }): Promise<SerperBusinessResult[]> {
@@ -33,19 +35,20 @@ export async function fetchSerperBusinesses({ category, city, page, batchId }: {
     throw new Error(`Serper.dev error: ${errorText}`);
   }
   const data = await response.json();
-  if (!data.places || !Array.isArray(data.places)) return [];
   return data.places.map((place: any) => ({
     business_name: place.title,
     address: place.address,
-    phone: place.phone || '',
+    phone: place.phoneNumber || '',
     website: place.website || '',
-    category: place.type || '',
+    category: place.type || (place.types && place.types[0]) || '',
     average_rating: place.rating ?? null,
-    number_of_reviews: place.reviewsCount ?? null,
-    google_maps_url: place.link,
+    number_of_reviews: place.ratingCount ?? null,
+    google_maps_url: place.placeId ? `https://www.google.com/maps/place/?q=place_id=${place.placeId}` : '',
     city,
     page,
     query_source: query,
     batch_id: batchId,
+    latitude: place.latitude,
+    longitude: place.longitude,
   }));
 } 

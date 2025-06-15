@@ -95,6 +95,7 @@ export async function POST(req: Request) {
         },
       ]).select();
       if (batchError) {
+        console.error('Batch insert failed:', batchError);
         return NextResponse.json({ success: false, error: 'Batch insert failed', details: batchError }, { status: 500 });
       }
       // Insert leads for this batch
@@ -111,6 +112,7 @@ export async function POST(req: Request) {
       if (leadsToInsert.length > 0) {
         const { data: leadData, error: leadError } = await supabase.from('leads').insert(leadsToInsert).select();
         if (leadError) {
+          console.error('Lead insert failed:', leadError);
           return NextResponse.json({ success: false, error: 'Lead insert failed', details: leadError }, { status: 500 });
         }
         if (!leadData || leadData.length === 0) {
@@ -122,6 +124,7 @@ export async function POST(req: Request) {
     }
     return NextResponse.json({ success: true });
   } catch (err) {
+    console.error('API /api/scrape error:', err);
     const errorMsg = (err && typeof err === 'object' && 'message' in err) ? (err as any).message : String(err);
     return NextResponse.json({ success: false, error: 'Internal server error', details: errorMsg }, { status: 500 });
   }
