@@ -40,10 +40,10 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({ open, onClose, lead, onSa
             <input name="business_name" value={form.business_name || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Address</label>
-            <input name="address" value={form.address || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" />
+            <label className="block text-sm font-medium text-gray-700">Street</label>
+            <input name="street" value={form.street || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">City</label>
               <input name="city" value={form.city || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" />
@@ -51,6 +51,10 @@ const EditLeadModal: React.FC<EditLeadModalProps> = ({ open, onClose, lead, onSa
             <div>
               <label className="block text-sm font-medium text-gray-700">State</label>
               <input name="state" value={form.state || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Zip</label>
+              <input name="zip" value={form.zip || ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">

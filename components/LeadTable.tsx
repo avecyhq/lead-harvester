@@ -56,9 +56,10 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, onEdit, onDelete }) => {
         <thead className="bg-gray-50">
           <tr>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort('business_name')}>Business Name</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Street</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">City</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">State</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Zip</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
@@ -73,9 +74,10 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, onEdit, onDelete }) => {
           {sortedLeads.map((lead) => (
             <tr key={lead.id} className="hover:bg-gray-50">
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{lead.business_name}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.address || '-'}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.street || '-'}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.city || '-'}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.state || '-'}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.zip || '-'}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.phone || '-'}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.category || '-'}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.average_rating ?? '-'}</td>

@@ -10,8 +10,10 @@ export interface Lead {
   id: string
   business_name: string
   address?: string
+  street?: string
   city?: string
   state?: string
+  zip?: string
   phone?: string
   website?: string
   category?: string

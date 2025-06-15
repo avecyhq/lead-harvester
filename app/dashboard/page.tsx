@@ -37,13 +37,6 @@ export default function DashboardPage() {
           .order('created_at', { ascending: false })
         if (batchesError) throw batchesError
         setBatches(batchesData || [])
-        // Debug output
-        if ((leadsData?.length ?? 0) === 0) {
-          console.log('DEBUG: No leads found', leadsData)
-        }
-        if ((batchesData?.length ?? 0) === 0) {
-          console.log('DEBUG: No batches found', batchesData)
-        }
       } catch (error) {
         console.error('Error fetching data:', error)
       } finally {
