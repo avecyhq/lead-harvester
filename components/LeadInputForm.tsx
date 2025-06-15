@@ -103,28 +103,24 @@ export default function LeadInputForm({ onSubmit }: { onSubmit?: (data: { busine
         setLoading(false);
         setError('Request timed out. Please try again.');
       }, 30000);
-      // NEW: Call the scraping API
+      // Call the scraping API
       const response = await fetch('/api/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           category: data.businessCategory,
           cities,
-          pages: [1, 2, 3], // Request 3 pages for up to 30 leads per city
+          pages: [1, 2, 3],
         }),
       });
-      console.log('Scrape API response:', response);
       const result = await response.json().catch((err) => {
-        console.error('Error parsing JSON:', err);
         throw new Error('Invalid server response.');
       });
-      console.log('Scrape result:', result);
       if (!result.success) throw new Error(result.error || 'Scrape failed');
-      setSuccess('Scrape complete! Redirecting to results...');
-      setTimeout(() => router.push('/dashboard'), 1500);
+      // Immediately redirect to dashboard after submitting
+      router.push('/dashboard');
       if (onSubmit) await onSubmit({ businessCategory: data.businessCategory, cities });
     } catch (err: any) {
-      console.error('Scrape error:', err);
       setError(err?.message || 'An error occurred.');
     } finally {
       if (timeoutId) clearTimeout(timeoutId);

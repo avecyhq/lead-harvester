@@ -70,59 +70,39 @@ export async function POST(req: Request) {
     if (!category || !cities || !pages) {
       return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
     }
-    // For each city, generate a batchId, scrape, and insert
-    for (const city of cities) {
-      const batchId = uuidv4();
-      let allLeads: any[] = [];
-      for (const page of pages) {
-        try {
-          const leads = await fetchSerperBusinesses({ category, city, page, batchId });
-          allLeads.push(...leads);
-        } catch (fetchErr) {
-          throw fetchErr;
-        }
-      }
-      // Deduplicate leads by business_name + address
-      const uniqueLeads = Array.from(new Map(allLeads.map(lead => [lead.business_name + lead.address, lead])).values());
-      const { data: batchData, error: batchError } = await supabase.from('batches').insert([
-        {
-          id: batchId,
-          user_id: userId,
-          business_category: category,
-          location: city,
-          lead_count: uniqueLeads.length,
-          created_at: new Date().toISOString(),
-        },
-      ]).select();
-      if (batchError) {
-        console.error('Batch insert failed:', batchError);
-        return NextResponse.json({ success: false, error: 'Batch insert failed', details: batchError }, { status: 500 });
-      }
-      // Insert leads for this batch
-      const leadsToInsert = uniqueLeads.map(lead => ({
-        ...lead,
-        street: lead.address ? extractStreet(lead.address) : '',
-        city: lead.address ? extractCity(lead.address) : '',
-        state: lead.address ? extractState(lead.address) : '',
-        zip: lead.address ? extractZip(lead.address) : '',
-        batch_id: batchId,
+
+    // Enqueue a new scrape job
+    const { data: job, error: jobError } = await supabase.from('scrape_jobs').insert([
+      {
         user_id: userId,
-        created_at: new Date().toISOString(),
-      }));
-      if (leadsToInsert.length > 0) {
-        const { data: leadData, error: leadError } = await supabase.from('leads').insert(leadsToInsert).select();
-        if (leadError) {
-          console.error('Lead insert failed:', leadError);
-          return NextResponse.json({ success: false, error: 'Lead insert failed', details: leadError }, { status: 500 });
-        }
-        if (!leadData || leadData.length === 0) {
-          console.error('No leads were inserted for batch', batchId);
-        }
-      } else {
-        console.error('No leads to insert for batch', batchId);
+        category,
+        cities,
+        pages,
+        status: 'pending',
       }
+    ]).select().single();
+
+    if (jobError) {
+      console.error('Failed to enqueue scrape job:', jobError);
+      return NextResponse.json({ success: false, error: 'Failed to enqueue scrape job', details: jobError }, { status: 500 });
     }
-    return NextResponse.json({ success: true });
+
+    // Insert a pending batch row for each city
+    const now = new Date().toISOString();
+    const batchRows = cities.map((city: string) => ({
+      user_id: userId,
+      business_category: category,
+      location: city,
+      lead_count: 0,
+      created_at: now,
+    }));
+    const { error: batchInsertError } = await supabase.from('batches').insert(batchRows);
+    if (batchInsertError) {
+      console.error('Failed to insert pending batches:', batchInsertError);
+      // Don't fail the request, just log
+    }
+
+    return NextResponse.json({ success: true, jobId: job.id });
   } catch (err) {
     console.error('API /api/scrape error:', err);
     const errorMsg = (err && typeof err === 'object' && 'message' in err) ? (err as any).message : String(err);

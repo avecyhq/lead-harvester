@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([])
   const [search, setSearch] = useState('')
   const [notExportedOnly, setNotExportedOnly] = useState(false)
+  const [jobStatuses, setJobStatuses] = useState<Record<string, string>>({})
 
   useEffect(() => {
     const fetchData = async () => {
@@ -49,6 +50,32 @@ export default function DashboardPage() {
     }
     fetchData()
   }, [supabase])
+
+  useEffect(() => {
+    const fetchJobStatuses = async () => {
+      if (batches.length === 0) return;
+      // Fetch job status for each batch by querying scrape_jobs for jobs matching this user's category/location/created_at
+      const { data: jobs, error } = await supabase
+        .from('scrape_jobs')
+        .select('id, status, category, cities, created_at')
+        .order('created_at', { ascending: false });
+      if (error) return;
+      // Map job status to batch by matching category/location/created_at
+      const statusMap: Record<string, string> = {};
+      for (const batch of batches) {
+        const job = jobs.find(j =>
+          j.category === batch.business_category &&
+          (j.cities?.includes(batch.location) || (Array.isArray(j.cities) && j.cities.includes(batch.location))) &&
+          Math.abs(new Date(j.created_at).getTime() - new Date(batch.created_at).getTime()) < 60000 // within 1 min
+        );
+        if (job) statusMap[batch.id] = job.status;
+      }
+      setJobStatuses(statusMap);
+    };
+    fetchJobStatuses();
+    const interval = setInterval(fetchJobStatuses, 4000);
+    return () => clearInterval(interval);
+  }, [batches, supabase]);
 
   const handleEdit = (lead: Lead) => {
     setSelectedLead(lead)
@@ -177,26 +204,40 @@ export default function DashboardPage() {
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"># Leads</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                     <th className="px-4 py-2"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {batches.map((batch) => (
-                    <tr key={batch.id}>
-                      <td className="px-4 py-2 whitespace-nowrap">{batch.business_category}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">{batch.location}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">{new Date(batch.created_at).toLocaleString()}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">{batch.lead_count}</td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        <button
-                          className="text-blue-600 hover:underline text-sm font-medium"
-                          onClick={() => router.push(`/dashboard/batch/${batch.id}`)}
-                        >
-                          View Leads
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {batches.map((batch) => {
+                    const status = jobStatuses[batch.id] || 'completed';
+                    let badge;
+                    if (status === 'pending' || status === 'processing') {
+                      badge = <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 animate-pulse">{status}</span>;
+                    } else if (status === 'failed') {
+                      badge = <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">failed</span>;
+                    } else {
+                      badge = <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">completed</span>;
+                    }
+                    return (
+                      <tr key={batch.id}>
+                        <td className="px-4 py-2 whitespace-nowrap">{batch.business_category}</td>
+                        <td className="px-4 py-2 whitespace-nowrap">{batch.location}</td>
+                        <td className="px-4 py-2 whitespace-nowrap">{new Date(batch.created_at).toLocaleString()}</td>
+                        <td className="px-4 py-2 whitespace-nowrap">{batch.lead_count}</td>
+                        <td className="px-4 py-2 whitespace-nowrap">{badge}</td>
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          <button
+                            className="text-blue-600 hover:underline text-sm font-medium"
+                            onClick={() => router.push(`/dashboard/batch/${batch.id}`)}
+                            disabled={status !== 'completed'}
+                          >
+                            View Leads
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
