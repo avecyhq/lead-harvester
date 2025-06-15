@@ -16,7 +16,7 @@ const Navigation = () => {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center space-x-2">
-            <Link href="/dashboard" className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2">
               <span className="inline-block">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-primary">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5V6a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 6v1.5M3 7.5v10.25A2.25 2.25 0 0 0 5.25 20h13.5A2.25 2.25 0 0 0 21 17.75V7.5M3 7.5h18M7.5 10.5h.008v.008H7.5V10.5Zm0 3h.008v.008H7.5V13.5Zm0 3h.008v.008H7.5V16.5Z" />
