@@ -9,6 +9,7 @@ import RequireAuth from '../../components/RequireAuth'
 import SignOutButton from '../../components/SignOutButton'
 import UserInfo from '../../components/UserInfo'
 import { useRouter } from 'next/navigation'
+import EditLeadModal from '@/components/EditLeadModal'
 
 export default function DashboardPage() {
   const [leads, setLeads] = useState<Lead[]>([])
@@ -16,6 +17,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const supabase = useSupabaseClient()
   const router = useRouter()
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -51,8 +54,28 @@ export default function DashboardPage() {
   }, [supabase])
 
   const handleEdit = (lead: Lead) => {
-    // TODO: Implement edit functionality
-    console.log('Edit lead:', lead)
+    setSelectedLead(lead)
+    setEditModalOpen(true)
+  }
+
+  const handleSave = async (updated: Partial<Lead>) => {
+    if (!selectedLead) return
+    try {
+      await supabase
+        .from('leads')
+        .update(updated)
+        .eq('id', selectedLead.id)
+      // Refresh leads
+      const { data: leadsData } = await supabase
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false })
+      setLeads(leadsData || [])
+      setEditModalOpen(false)
+      setSelectedLead(null)
+    } catch (error) {
+      console.error('Error updating lead:', error)
+    }
   }
 
   const handleDelete = async (id: string) => {
@@ -163,6 +186,12 @@ export default function DashboardPage() {
             />
           </div>
         </div>
+        <EditLeadModal
+          open={editModalOpen}
+          onClose={() => { setEditModalOpen(false); setSelectedLead(null); }}
+          lead={selectedLead}
+          onSave={handleSave}
+        />
       </div>
     </RequireAuth>
   )
