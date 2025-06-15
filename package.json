@@ -17,6 +17,8 @@
     "@supabase/supabase-js": "^2.50.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "file-saver": "^2.0.5",
+    "json2csv": "^6.0.0-alpha.2",
     "lucide-react": "^0.294.0",
     "next": "14.0.0",
     "node-fetch": "^3.3.2",

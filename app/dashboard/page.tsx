@@ -10,6 +10,7 @@ import SignOutButton from '../../components/SignOutButton'
 import UserInfo from '../../components/UserInfo'
 import { useRouter } from 'next/navigation'
 import EditLeadModal from '@/components/EditLeadModal'
+import { saveAs } from 'file-saver'
 
 export default function DashboardPage() {
   const [leads, setLeads] = useState<Lead[]>([])
@@ -19,6 +20,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
+  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -80,6 +82,36 @@ export default function DashboardPage() {
       setLeads(leads.filter(lead => lead.id !== id))
     } catch (error) {
       console.error('Error deleting lead:', error)
+    }
+  }
+
+  const handleSelectLead = (leadId: string, checked: boolean) => {
+    setSelectedLeadIds(prev => checked ? [...prev, leadId] : prev.filter(id => id !== leadId))
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedLeadIds(checked ? leads.map(l => l.id) : [])
+  }
+
+  const handleExport = async () => {
+    try {
+      const res = await fetch('/api/leads/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selectedLeadIds }),
+      })
+      if (!res.ok) throw new Error('Export failed')
+      const blob = await res.blob()
+      const disposition = res.headers.get('Content-Disposition')
+      let filename = 'leads_harvester_export.csv'
+      if (disposition) {
+        const match = disposition.match(/filename="(.+)"/)
+        if (match) filename = match[1]
+      }
+      saveAs(blob, filename)
+      // Optionally, refresh leads to update exported_at
+    } catch (err) {
+      alert('Export failed: ' + (err instanceof Error ? err.message : String(err)))
     }
   }
 
@@ -168,14 +200,24 @@ export default function DashboardPage() {
 
         {/* Leads Table */}
         <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Recent Leads</h2>
+            <button
+              className="ml-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded shadow"
+              onClick={handleExport}
+              disabled={leads.length === 0}
+            >
+              Export{selectedLeadIds.length > 0 ? ` (${selectedLeadIds.length})` : ''}
+            </button>
           </div>
           <div className="p-6">
             <LeadTable 
               leads={leads} 
               onEdit={handleEdit} 
               onDelete={handleDelete} 
+              selectedLeadIds={selectedLeadIds}
+              onSelectLead={handleSelectLead}
+              onSelectAll={handleSelectAll}
             />
           </div>
         </div>

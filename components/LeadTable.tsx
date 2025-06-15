@@ -8,6 +8,9 @@ interface LeadTableProps {
   leads: Lead[]
   onEdit: (lead: Lead) => void
   onDelete: (id: string) => void
+  selectedLeadIds?: string[]
+  onSelectLead?: (leadId: string, checked: boolean) => void
+  onSelectAll?: (checked: boolean) => void
 }
 
 const statusColors = {
@@ -18,7 +21,7 @@ const statusColors = {
   rejected: 'bg-red-100 text-red-800',
 }
 
-const LeadTable: React.FC<LeadTableProps> = ({ leads, onEdit, onDelete }) => {
+const LeadTable: React.FC<LeadTableProps> = ({ leads, onEdit, onDelete, selectedLeadIds = [], onSelectLead, onSelectAll }) => {
   const [sortColumn, setSortColumn] = useState<keyof Lead>('created_at')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
 
@@ -42,6 +45,8 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, onEdit, onDelete }) => {
     return 0;
   })
 
+  const allSelected = leads.length > 0 && leads.every(lead => selectedLeadIds.includes(lead.id));
+
   if (leads.length === 0) {
     return (
       <div className="text-center py-12">
@@ -55,6 +60,14 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, onEdit, onDelete }) => {
       <table className="min-w-full bg-white border border-gray-200 rounded-lg">
         <thead className="bg-gray-50">
           <tr>
+            <th className="px-2 py-3">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={e => onSelectAll && onSelectAll(e.target.checked)}
+                aria-label="Select all leads"
+              />
+            </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort('business_name')}>Business Name</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Street</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">City</th>
@@ -72,7 +85,15 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, onEdit, onDelete }) => {
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
           {sortedLeads.map((lead) => (
-            <tr key={lead.id} className="hover:bg-gray-50">
+            <tr key={lead.id} className={`hover:bg-gray-50 ${selectedLeadIds.includes(lead.id) ? 'bg-blue-50' : ''}`}>
+              <td className="px-2 py-4">
+                <input
+                  type="checkbox"
+                  checked={selectedLeadIds.includes(lead.id)}
+                  onChange={e => onSelectLead && onSelectLead(lead.id, e.target.checked)}
+                  aria-label={`Select lead ${lead.business_name}`}
+                />
+              </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{lead.business_name}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.street || '-'}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.city || '-'}</td>
