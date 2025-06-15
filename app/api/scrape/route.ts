@@ -112,13 +112,19 @@ export async function POST(req: Request) {
         user_id: userId,
         created_at: new Date().toISOString(),
       }));
+      console.log('DEBUG: Prepared to insert leads for batch', { batchId, leadsToInsertCount: leadsToInsert.length });
       if (leadsToInsert.length > 0) {
         const { data: leadData, error: leadError } = await supabase.from('leads').insert(leadsToInsert).select();
-        console.log('DEBUG: Insert leads', { batchId, leadData, leadError });
+        console.log('DEBUG: Insert leads result', { batchId, insertedCount: leadData ? leadData.length : 0, leadError });
         if (leadError) {
           console.log('DEBUG: Lead insert failed', leadError);
           return NextResponse.json({ success: false, error: 'Lead insert failed', details: leadError }, { status: 500 });
         }
+        if (!leadData || leadData.length === 0) {
+          console.log('DEBUG: No leads were inserted for batch', batchId);
+        }
+      } else {
+        console.log('DEBUG: No leads to insert for batch', batchId);
       }
     }
     return NextResponse.json({ success: true });

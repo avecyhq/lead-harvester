@@ -8,12 +8,14 @@ import { BarChart3, Users, TrendingUp, Target } from 'lucide-react'
 import RequireAuth from '../../components/RequireAuth'
 import SignOutButton from '../../components/SignOutButton'
 import UserInfo from '../../components/UserInfo'
+import { useRouter } from 'next/navigation'
 
 export default function DashboardPage() {
   const [leads, setLeads] = useState<Lead[]>([])
   const [batches, setBatches] = useState<Batch[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = useSupabaseClient()
+  const router = useRouter()
 
   useEffect(() => {
     const fetchData = async () => {
@@ -120,7 +122,12 @@ export default function DashboardPage() {
                       <td className="px-4 py-2 whitespace-nowrap">{new Date(batch.created_at).toLocaleString()}</td>
                       <td className="px-4 py-2 whitespace-nowrap">{batch.lead_count}</td>
                       <td className="px-4 py-2 whitespace-nowrap">
-                        <button className="text-blue-600 hover:underline text-sm font-medium">View Leads</button>
+                        <button
+                          className="text-blue-600 hover:underline text-sm font-medium"
+                          onClick={() => router.push(`/dashboard/batch/${batch.id}`)}
+                        >
+                          View Leads
+                        </button>
                       </td>
                     </tr>
                   ))}
