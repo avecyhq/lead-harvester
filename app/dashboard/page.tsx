@@ -21,6 +21,8 @@ export default function DashboardPage() {
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([])
+  const [search, setSearch] = useState('')
+  const [notExportedOnly, setNotExportedOnly] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -93,27 +95,43 @@ export default function DashboardPage() {
     setSelectedLeadIds(checked ? leads.map(l => l.id) : [])
   }
 
+  // Filter leads in the UI
+  const filteredLeads = leads.filter(lead => {
+    const matchesSearch =
+      search.trim() === '' ||
+      (lead.business_name?.toLowerCase().includes(search.toLowerCase()) ||
+        lead.category?.toLowerCase().includes(search.toLowerCase()) ||
+        lead.city?.toLowerCase().includes(search.toLowerCase()) ||
+        lead.phone?.toLowerCase().includes(search.toLowerCase()));
+    const matchesExported = !notExportedOnly || !lead.exported_at;
+    return matchesSearch && matchesExported;
+  });
+
   const handleExport = async () => {
     try {
       const res = await fetch('/api/leads/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selectedLeadIds }),
-      })
-      if (!res.ok) throw new Error('Export failed')
-      const blob = await res.blob()
-      const disposition = res.headers.get('Content-Disposition')
-      let filename = 'leads_harvester_export.csv'
+        body: JSON.stringify({
+          selectedLeadIds,
+          search,
+          notExportedOnly,
+        }),
+      });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition');
+      let filename = 'leads_harvester_export.csv';
       if (disposition) {
-        const match = disposition.match(/filename="(.+)"/)
-        if (match) filename = match[1]
+        const match = disposition.match(/filename="(.+)"/);
+        if (match) filename = match[1];
       }
-      saveAs(blob, filename)
+      saveAs(blob, filename);
       // Optionally, refresh leads to update exported_at
     } catch (err) {
-      alert('Export failed: ' + (err instanceof Error ? err.message : String(err)))
+      alert('Export failed: ' + (err instanceof Error ? err.message : String(err)));
     }
-  }
+  };
 
   const stats = {
     total: leads.length,
@@ -200,19 +218,35 @@ export default function DashboardPage() {
 
         {/* Leads Table */}
         <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Recent Leads</h2>
+          <div className="px-6 py-4 border-b border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-center gap-2 w-full md:w-auto">
+              <input
+                type="text"
+                placeholder="Search leads..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="border border-gray-300 rounded px-3 py-2 w-full md:w-64"
+              />
+              <label className="flex items-center gap-2 text-sm ml-2">
+                <input
+                  type="checkbox"
+                  checked={notExportedOnly}
+                  onChange={e => setNotExportedOnly(e.target.checked)}
+                />
+                Not yet exported
+              </label>
+            </div>
             <button
               className="ml-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded shadow"
               onClick={handleExport}
-              disabled={leads.length === 0}
+              disabled={filteredLeads.length === 0}
             >
               Export{selectedLeadIds.length > 0 ? ` (${selectedLeadIds.length})` : ''}
             </button>
           </div>
           <div className="p-6">
             <LeadTable 
-              leads={leads} 
+              leads={filteredLeads} 
               onEdit={handleEdit} 
               onDelete={handleDelete} 
               selectedLeadIds={selectedLeadIds}

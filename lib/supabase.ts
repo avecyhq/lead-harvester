@@ -27,6 +27,7 @@ export interface Lead {
   sync_status?: string
   created_at: string
   user_id?: string
+  exported_at?: string | null
   // Add more fields as needed from enrichment, e.g. owner_name, linkedin_url, etc.
 }
 
