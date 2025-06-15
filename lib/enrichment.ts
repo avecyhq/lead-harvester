@@ -44,7 +44,11 @@ export async function enrichLead(lead: any): Promise<EnrichLeadResult> {
       ],
       response_format: { type: 'json_object' }
     });
-    const result: OpenAIResult = JSON.parse(response.choices[0].message.content);
+    const content = response.choices[0].message.content;
+    if (typeof content !== 'string') {
+      throw new Error('OpenAI response content is null or not a string');
+    }
+    const result: OpenAIResult = JSON.parse(content);
     const ownerName: string = typeof result.result === 'string' ? result.result : '';
     const confidence: number = typeof result.confidence === 'number' ? result.confidence : 0;
     const reasoning: string = result.reasoning ?? '';

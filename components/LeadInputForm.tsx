@@ -110,7 +110,7 @@ export default function LeadInputForm({ onSubmit }: { onSubmit?: (data: { busine
         body: JSON.stringify({
           category: data.businessCategory,
           cities,
-          pages: [1], // You can update this to allow user selection
+          pages: [1, 2, 3], // Request 3 pages for up to 30 leads per city
         }),
       });
       console.log('Scrape API response:', response);

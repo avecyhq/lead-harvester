@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Lead, getLeads, deleteLead, Batch, getBatches } from '@/lib/supabase'
+import { Lead, Batch } from '@/lib/supabase'
+import { useSupabaseClient } from '@supabase/auth-helpers-react'
 import LeadTable from '@/components/LeadTable'
 import { BarChart3, Users, TrendingUp, Target } from 'lucide-react'
 import RequireAuth from '../../components/RequireAuth'
@@ -12,16 +13,32 @@ export default function DashboardPage() {
   const [leads, setLeads] = useState<Lead[]>([])
   const [batches, setBatches] = useState<Batch[]>([])
   const [loading, setLoading] = useState(true)
+  const supabase = useSupabaseClient()
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [leadsData, batchesData] = await Promise.all([
-          getLeads(),
-          getBatches(),
-        ])
-        setLeads(leadsData)
-        setBatches(batchesData)
+        // Fetch leads for the authenticated user
+        const { data: leadsData, error: leadsError } = await supabase
+          .from('leads')
+          .select('*')
+          .order('created_at', { ascending: false })
+        if (leadsError) throw leadsError
+        setLeads(leadsData || [])
+        // Fetch batches for the authenticated user
+        const { data: batchesData, error: batchesError } = await supabase
+          .from('batches')
+          .select('*')
+          .order('created_at', { ascending: false })
+        if (batchesError) throw batchesError
+        setBatches(batchesData || [])
+        // Debug output
+        if ((leadsData?.length ?? 0) === 0) {
+          console.log('DEBUG: No leads found', leadsData)
+        }
+        if ((batchesData?.length ?? 0) === 0) {
+          console.log('DEBUG: No batches found', batchesData)
+        }
       } catch (error) {
         console.error('Error fetching data:', error)
       } finally {
@@ -29,7 +46,7 @@ export default function DashboardPage() {
       }
     }
     fetchData()
-  }, [])
+  }, [supabase])
 
   const handleEdit = (lead: Lead) => {
     // TODO: Implement edit functionality
@@ -38,7 +55,10 @@ export default function DashboardPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      await deleteLead(id)
+      await supabase
+        .from('leads')
+        .delete()
+        .eq('id', id)
       setLeads(leads.filter(lead => lead.id !== id))
     } catch (error) {
       console.error('Error deleting lead:', error)
@@ -47,10 +67,6 @@ export default function DashboardPage() {
 
   const stats = {
     total: leads.length,
-    new: leads.filter(lead => lead.status === 'new').length,
-    contacted: leads.filter(lead => lead.status === 'contacted').length,
-    qualified: leads.filter(lead => lead.status === 'qualified').length,
-    converted: leads.filter(lead => lead.status === 'converted').length,
   }
 
   if (loading) {
@@ -84,37 +100,30 @@ export default function DashboardPage() {
           </div>
           <div className="p-6 overflow-x-auto">
             {batches.length === 0 ? (
-              <div className="text-center text-gray-500">No scrape batches found.</div>
+              <div className="text-center text-gray-500">No batches found. (Check console for debug output)</div>
             ) : (
               <table className="min-w-full divide-y divide-gray-200">
                 <thead>
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase"># Leads</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pages</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cities</th>
                     <th className="px-4 py-2"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {batches.map((batch) => {
-                    const citySummary = batch.cities.length > 1
-                      ? `${batch.cities[0]} +${batch.cities.length - 1} more`
-                      : batch.cities[0]
-                    return (
-                      <tr key={batch.id}>
-                        <td className="px-4 py-2 whitespace-nowrap">{batch.category}</td>
-                        <td className="px-4 py-2 whitespace-nowrap">{new Date(batch.created_at).toLocaleString()}</td>
-                        <td className="px-4 py-2 whitespace-nowrap">{batch.total_leads}</td>
-                        <td className="px-4 py-2 whitespace-nowrap">{Array.isArray(batch.pages) ? batch.pages.join(', ') : batch.pages}</td>
-                        <td className="px-4 py-2 whitespace-nowrap">{citySummary}</td>
-                        <td className="px-4 py-2 whitespace-nowrap">
-                          <button className="text-blue-600 hover:underline text-sm font-medium">View Leads</button>
-                        </td>
-                      </tr>
-                    )
-                  })}
+                  {batches.map((batch) => (
+                    <tr key={batch.id}>
+                      <td className="px-4 py-2 whitespace-nowrap">{batch.business_category}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">{batch.location}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">{new Date(batch.created_at).toLocaleString()}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">{batch.lead_count}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        <button className="text-blue-600 hover:underline text-sm font-medium">View Leads</button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             )}
@@ -129,46 +138,6 @@ export default function DashboardPage() {
               <div className="ml-4">
                 <p className="text-2xl font-semibold text-gray-900">{stats.total}</p>
                 <p className="text-sm text-gray-600">Total Leads</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <Target className="h-8 w-8 text-green-600" />
-              <div className="ml-4">
-                <p className="text-2xl font-semibold text-gray-900">{stats.new}</p>
-                <p className="text-sm text-gray-600">New Leads</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <BarChart3 className="h-8 w-8 text-yellow-600" />
-              <div className="ml-4">
-                <p className="text-2xl font-semibold text-gray-900">{stats.contacted}</p>
-                <p className="text-sm text-gray-600">Contacted</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <TrendingUp className="h-8 w-8 text-orange-600" />
-              <div className="ml-4">
-                <p className="text-2xl font-semibold text-gray-900">{stats.qualified}</p>
-                <p className="text-sm text-gray-600">Qualified</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center">
-              <Users className="h-8 w-8 text-purple-600" />
-              <div className="ml-4">
-                <p className="text-2xl font-semibold text-gray-900">{stats.converted}</p>
-                <p className="text-sm text-gray-600">Converted</p>
               </div>
             </div>
           </div>

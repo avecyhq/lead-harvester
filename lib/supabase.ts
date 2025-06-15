@@ -8,17 +8,24 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 // Types for our database tables
 export interface Lead {
   id: string
-  company_name: string
-  contact_name: string
-  email: string
+  business_name: string
+  address?: string
+  city?: string
+  state?: string
   phone?: string
   website?: string
-  industry?: string
-  status: 'new' | 'contacted' | 'qualified' | 'converted' | 'rejected'
-  source?: string
-  notes?: string
+  category?: string
+  average_rating?: number | null
+  number_of_reviews?: number | null
+  google_maps_url?: string
+  query_source?: string
+  page?: number
+  batch_id?: string
+  enrichment_status?: string
+  sync_status?: string
   created_at: string
-  updated_at: string
+  user_id?: string
+  // Add more fields as needed from enrichment, e.g. owner_name, linkedin_url, etc.
 }
 
 export interface LeadInsert {
@@ -33,15 +40,14 @@ export interface LeadInsert {
   notes?: string
 }
 
-// Add Batch type for scrape_batches
+// Add Batch type for batches table
 export interface Batch {
   id: string
   user_id: string
-  category: string
-  cities: string[]
-  pages: number[]
+  business_category: string
+  location: string
+  lead_count: number
   created_at: string
-  total_leads: number
 }
 
 // Database functions
@@ -105,7 +111,7 @@ export const deleteLead = async (id: string): Promise<void> => {
 // Fetch all batches for the current user, ordered by created_at desc
 export const getBatches = async (): Promise<Batch[]> => {
   const { data, error } = await supabase
-    .from('scrape_batches')
+    .from('batches')
     .select('*')
     .order('created_at', { ascending: false })
 

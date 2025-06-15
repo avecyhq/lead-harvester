@@ -1,3 +1,6 @@
+console.log('🔥 API ROUTE LOADED FROM', __filename);
+console.log('🔥 API ROUTE IS LIVE: ' + new Date().toISOString());
+console.log('DEBUG: API ROUTE VERSION 1.0.0');
 import { NextResponse } from 'next/server';
 import { fetchSerperBusinesses } from '@/lib/serper';
 import { v4 as uuidv4 } from 'uuid';
@@ -42,77 +45,86 @@ function extractUnit(address: string): string {
   return match ? match[0] : '';
 }
 
-export async function POST(request: Request) {
-  const cookieStore = cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-  const { data: { session } } = await supabase.auth.getSession();
-  // DEBUG: Log session and request body
-  console.log('DEBUG session:', session);
-  const body = await request.clone().json().catch(() => null);
-  console.log('DEBUG request body:', body);
-  if (!session) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-  }
-
+export async function POST(req: Request) {
+  console.log('DEBUG: Entered API route');
   try {
-    const { category, cities, pages } = body || {};
-    if (!category || !Array.isArray(cities) || !Array.isArray(pages) || cities.length === 0 || pages.length === 0) {
-      return NextResponse.json({ success: false, error: 'Missing or invalid category, cities, or pages.' }, { status: 400 });
+    const supabase = createRouteHandlerClient({ cookies });
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('DEBUG: session', session);
+    if (!session) {
+      console.log('DEBUG: No session, unauthorized');
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    if (cities.length > 25) {
-      return NextResponse.json({ success: false, error: 'You can enter up to 25 cities per search.' }, { status: 400 });
-    }
-    const batchId = uuidv4();
     const userId = session.user.id;
-    // Scrape all cities/pages
-    const allResults = await Promise.all(
-      cities.flatMap(city =>
-        pages.map(page =>
-          fetchSerperBusinesses({ category, city, page, batchId })
-        )
-      )
-    );
-    // Flatten and deduplicate results
-    const combined = allResults.flat();
-    const uniqueMap = new Map();
-    for (const lead of combined) {
-      const dedupeKey = lead.website || lead.phone || (lead.business_name + '|' + lead.address);
-      if (!uniqueMap.has(dedupeKey)) {
-        uniqueMap.set(dedupeKey, lead);
-      }
-    }
-    const uniqueLeads = Array.from(uniqueMap.values());
-    // Insert batch into scrape_batches table
-    await supabase.from('scrape_batches').insert([
+
+    // Ensure user exists in users table
+    await supabase.from('users').upsert([
       {
-        id: batchId,
-        user_id: userId,
-        category,
-        cities,
-        pages,
-        created_at: new Date().toISOString(),
-        total_leads: uniqueLeads.length
+        id: userId,
+        email: session.user.email, // add other fields as needed
       }
     ]);
-    // Insert leads into leads table
-    if (uniqueLeads.length > 0) {
+
+    const body = await req.json();
+    console.log('DEBUG: request body', body);
+    const { category, cities, pages } = body;
+    if (!category || !cities || !pages) {
+      console.log('DEBUG: Missing required fields');
+      return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
+    }
+    // For each city, generate a batchId, scrape, and insert
+    for (const city of cities) {
+      const batchId = uuidv4();
+      let allLeads: any[] = [];
+      for (const page of pages) {
+        console.log('DEBUG: About to call fetchSerperBusinesses', { category, city, page, batchId });
+        try {
+          const leads = await fetchSerperBusinesses({ category, city, page, batchId });
+          console.log('DEBUG: fetchSerperBusinesses returned', { count: leads.length });
+          allLeads.push(...leads);
+        } catch (fetchErr) {
+          console.log('DEBUG: fetchSerperBusinesses threw', fetchErr);
+          throw fetchErr;
+        }
+      }
+      // Deduplicate leads by business_name + address
+      const uniqueLeads = Array.from(new Map(allLeads.map(lead => [lead.business_name + lead.address, lead])).values());
+      console.log('DEBUG: About to insert batch for city', city);
+      const { data: batchData, error: batchError } = await supabase.from('batches').insert([
+        {
+          id: batchId,
+          user_id: userId,
+          business_category: category,
+          location: city,
+          lead_count: uniqueLeads.length,
+          created_at: new Date().toISOString(),
+        },
+      ]).select();
+      console.log('DEBUG: Insert batch', { city, batchData, batchError });
+      if (batchError) {
+        console.log('DEBUG: Batch insert failed', batchError);
+        return NextResponse.json({ success: false, error: 'Batch insert failed', details: batchError }, { status: 500 });
+      }
+      // Insert leads for this batch
       const leadsToInsert = uniqueLeads.map(lead => ({
         ...lead,
-        user_id: userId,
         batch_id: batchId,
-        enrichment_status: 'pending',
-        sync_status: 'pending',
-        created_at: new Date().toISOString()
+        user_id: userId,
+        created_at: new Date().toISOString(),
       }));
-      // Insert in batches of 1000 if needed
-      const chunkSize = 1000;
-      for (let i = 0; i < leadsToInsert.length; i += chunkSize) {
-        const chunk = leadsToInsert.slice(i, i + chunkSize);
-        await supabase.from('leads').insert(chunk);
+      if (leadsToInsert.length > 0) {
+        const { data: leadData, error: leadError } = await supabase.from('leads').insert(leadsToInsert).select();
+        console.log('DEBUG: Insert leads', { batchId, leadData, leadError });
+        if (leadError) {
+          console.log('DEBUG: Lead insert failed', leadError);
+          return NextResponse.json({ success: false, error: 'Lead insert failed', details: leadError }, { status: 500 });
+        }
       }
     }
-    return NextResponse.json({ success: true, batch_id: batchId, inserted: uniqueLeads.length });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error?.message || 'Internal server error.' }, { status: 500 });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.log('DEBUG: Caught error in API route', err);
+    const errorMsg = (err && typeof err === 'object' && 'message' in err) ? (err as any).message : String(err);
+    return NextResponse.json({ success: false, error: 'Internal server error', details: errorMsg }, { status: 500 });
   }
 } 
