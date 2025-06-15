@@ -1,195 +1,172 @@
-# Product Name: LeadHarvester
+LeadHarvester – MVP PRD
+Last updated: 2025-06-15
 
-## Purpose:
-Build a web application that enables users to generate verified, enriched B2B lead lists based on business category and geographic location. The tool automates data collection from Google Maps using the Serper.dev API, enriches leads using third-party APIs and AI, verifies emails, and exports lead data in CSV format. Optionally, users can sync their leads into the Meadowlark platform for automated outreach.
+────────────────────────────────────────────────────────────────────────
 
----
+0 Executive Summary
+LeadHarvester is a SaaS tool that
 
-## Core Features
+Scrapes Google Maps (Serper.dev) for businesses by category × city × results-page
 
-### 1. Lead Input Interface
-- Form where users can input:
-  - A business category (e.g., “Mexican restaurants”)
-  - A multiline list of cities (one per line)
-  - A selection of which pages of Google Maps to scrape (Page 1, 2, and/or 3)
-- Client-side and backend validation
-- **City Limit:** A maximum of 25 cities per request (to prevent timeouts and API overuse)
+Runs a cost-optimised enrichment waterfall to obtain an owner name, a verified email, and social links
 
----
+Stores all data in Supabase with Row-Level Security (RLS)
 
-### 2. Bulk City + Multi-Page Scraping Logic
-- For each city and selected page, run a separate query via the Serper.dev API
-- Simulate pagination via query phrasing or offsets
-- Each Serper result should extract:
-  - Business name
-  - Address (with city and state)
-  - Website
-  - Phone number
-  - Google Maps URL
-  - Business type/category
-  - Average rating
-  - Number of reviews
-- Store with metadata:
-  - `query_source` (e.g., “Austin, TX – Page 2”)
-  - `page_number`: 1, 2, or 3
-  - `batch_id`: UUID for grouping
-- Deduplicate results across pages and cities using:
-  - Website domain
-  - Phone number
-  - Business name + address combo
+Lets users export CSV or sync to Meadowlark under a per-user credit model
 
----
+────────────────────────────────────────────────────────────────────────
 
-### 3. Lead Enrichment (Updated)
+1 User Stories & Acceptance Tests
+#1 Paste ≤ 25 cities, choose pages 1–3 → Form blocks > 25 lines; page check-boxes toggle
+#2 View Scrape History row with city summary → Table shows “Austin + 24 more”; hover reveals list
+#3 Open a batch and view leads with filters → Lead table renders; filter by confidence ≥ 0.9 & verified
+#4 Export selected leads or sync to Meadowlark → CSV downloads; Meadowlark API returns 200
+#5 Credits decrement (-1 enrichment, -1 verification) → Credit badge updates; actions block at 0
 
-- Enrich each lead with:
-  - Owner’s full name
-  - Personal and/or business email
-  - LinkedIn profile
-  - Facebook and Instagram links
+Note A – profiles.credits
+Supabase profiles table must include credits integer and each enrichment / verification path decrements it atomically.
 
-- **AI-Powered Owner Detection:**
-  - The app uses a custom async function called `enrichOwnerFromDomain(domain: string)` located in `/lib/enrich/owner.ts`
-  - This function sends a structured prompt to GPT-4o to:
-    - Visit the business website
-    - Search Google and LinkedIn
-    - Extract and return the owner's full name
-  - The model response is parsed into structured JSON:
-    ```json
-    {
-      "result": "First Last",
-      "confidence": 0.95,
-      "reasoning": "Found LinkedIn profile indicating owner role",
-      "stepsTaken": [ ... ],
-      "tokensUsed": 4562,
-      "costEstimate": "$0.0008"
-    }
-    ```
-  - The system only stores the owner’s name if `confidence >= 0.90`
-  - All results include reasoning and step-by-step logs for transparency
-  - The function includes error handling and rejects incomplete or hallucinated data
+────────────────────────────────────────────────────────────────────────
 
-- **Third-Party Enrichment APIs:**
-  - Use Kitt, Prospeo, DropContact, LeadMagic to:
-    - Find verified emails, LinkedIn URLs, owner names
-    - Fill in gaps from the AI enrichment function
-    - Serve as primary or secondary sources based on confidence
+2 Data Model (Supabase)
 
-- **Firecrawl Integration:**
-  - If APIs and `enrichOwnerFromDomain` return no valid results or confidence < 90%:
-    - Use Firecrawl to extract structured content from the business website
-    - Look for owner mentions in About, Contact, and footer sections
-    - Extract social media links and contact info
-    - Store only if result meets confidence criteria
+leads (table)
+id uuid PK
+user_id uuid
+batch_id uuid FK→scrape_batches.id
+business_name text
+address text
+city text
+state text
+website text
+phone text
+rating numeric
+rating_count int
+query_source text (e.g. “Austin – Page 2”)
+page_number int (1/2/3)
+owner_name text
+owner_confidence numeric (0-1)
+owner_reasoning text
+owner_source text (“Kitt”, “DropContact”, “GPT-4o”, …)
+email text
+email_verified bool
+linkedin_url text
+facebook_url text
+instagram_url text
+enrichment_status text
+sync_status text
+created_at timestamptz default now()
 
+scrape_batches (table)
+id uuid PK
+user_id uuid
+category text
+cities text[] (full list, ≤ 25)
+pages int[] (e.g. {1,2,3})
+total_leads int
+created_at timestamptz
 
----
+RLS: user_id = auth.uid() on both tables (insert / select / update / delete).
 
-### 4. Email Verification
-- Use the MillionVerifier API to validate all found emails
-- Tag emails with:
-  - `email_verified: true/false`
-  - `verification_source: "MillionVerifier"`
+────────────────────────────────────────────────────────────────────────
 
----
+3 Scraping Workflow
 
-### 5. Supabase Database Storage
-- Create `leads` table with fields:
-  - `id`, `business_name`, `address`, `website`, `phone`, `rating`, `rating_count`
-  - `query_source`, `page_number`, `batch_id`, `user_id`
-  - `owner_name`, `owner_confidence`, `owner_reasoning`, `owner_source`
-  - `linkedin_url`, `facebook_url`, `instagram_url`, `email`
-  - `email_verified`, `enrichment_status`, `sync_status`
-  - `created_at`
+POST /api/scrape with category, cities[], pages[]
 
-- Create `scrape_batches` table with fields:
-  - `id` (UUID)
-  - `user_id`
-  - `category`
-  - `cities` (text[])
-  - `pages` (int[])
-  - `total_leads`
-  - `created_at`
+Loop city×page → Serper.dev → 10 listings
 
-- Enforce row-level security on both tables so each user can only see their own records
+De-duplicate (domain OR phone OR name+address)
 
----
+Insert lead stubs with enrichment_status='pending' and shared batch_id
 
-### 6. Lead Review Table (Frontend)
-- Show scraped and enriched leads in a searchable, sortable table
-- Each row shows:
-  - Business name
-  - Owner name (if enriched)
-  - Email
-  - City
-  - Confidence score
-- Allow users to:
-  - Filter by city, page, verification status, batch, or confidence
-  - View full reasoning or enrichment source via expandable row or modal
-  - Export selected leads as CSV
-  - Push leads to Meadowlark
-  - Re-run failed enrichments or delete individual leads
+Return batch_id for frontend progress polling
 
----
+────────────────────────────────────────────────────────────────────────
 
-### 7. Scrape History Dashboard
-- Display a list of all previous scrape batches per user
-- For each batch, show:
-  - Category
-  - Date of scrape
-  - Number of leads
-  - Pages selected
-  - **City summary**:
-    - Show the **first city + “+X more”**
-    - Example: `Austin, TX + 24 more`
-    - Clicking expands full list via modal or tooltip
-- Actions:
-  - View leads in batch
-  - Re-export CSV
-  - Re-sync batch to Meadowlark
-  - Optionally: re-run enrichment with updated logic
+4 Enrichment Waterfall (order & cost per hit)
+A Pattern-guess email → MillionVerifier $0.0004
+B Kitt.ai $0.0065
+C Prospeo $0.006
+D LinkedIn-finder (Kaspr / Skrapp / Apollo) $0.008 TODO: choose provider
+E LeadMagic $0.011
+F DropContact $0.05
+G enrichOwnerFromDomain (GPT-4o / Claude) $0.001
+H Firecrawl website crawl $0.005
 
----
+Stop when a lead has
+owner_name AND email_verified = true AND owner_confidence ≥ 0.90
+Finally re-verify all collected emails via MillionVerifier bulk pass.
 
-### 8. Credit System
-- Assign a credit balance to each user account
-- Deduct credits for:
-  - Email enrichment (1 credit per enriched lead)
-  - Email verification (1 credit per verified email)
-- UI shows available credits and blocks actions when credits are exhausted
-- Allow admins to reset or grant credits
+────────────────────────────────────────────────────────────────────────
 
----
+5 Key Code Modules
+/lib/serper.ts fetchMapsResults(city, category, page)
+/lib/enrich/owner.ts enrichOwnerFromDomain(domain) – GPT agent
+/lib/enrich/waterfall.ts orchestrates stages A → H
+/app/api/scrape/route.ts triggers scrape & queues enrichment
+/app/api/enrich/route.ts worker endpoint / queue consumer
+/app/api/sync/meadowlark.ts STUB for Meadowlark sync (MVP)
 
-### 9. Authentication
-- Use Supabase Auth (magic link or email/password)
-- Ensure each user has isolated access to their data
-- Track `user_id` on every action and DB insert
+Note B – Meadowlark Stub
+Provide stub implementation returning 200; swap real credentials post-MVP.
 
----
+────────────────────────────────────────────────────────────────────────
 
-## Tech Stack:
-- **Frontend**: Next.js (App Router), Tailwind CSS, ShadCN UI
-- **Backend**: Supabase (Auth, DB, RLS)
-- **External Services**:
-  - Serper.dev (scraping)
-  - Prospeo, Kitt, DropContact, LeadMagic (enrichment)
-  - MillionVerifier (email verification)
-  - OpenAI / Claude (AI owner lookup)
-  - Firecrawl (fallback website parsing)
-  - Meadowlark (optional sync)
+6 Frontend UX
 
----
+6.1 Scrape Form
+• Category input • Multiline city textarea (live count) • Page check-boxes 1 2 3 • Credit badge
 
-## MVP Goal:
-Let a user:
-- Paste up to 25 cities
-- Select business category and pages to scrape (1–3)
-- Automatically gather and enrich leads from Google Maps
-- Identify owners using AI (confidence ≥ 90%)
-- Use Firecrawl if APIs fail
-- Verify emails
-- View lead results in a clean UI
-- Export or sync leads to Meadowlark
-- Review and re-run previous scrapes
-- All within a basic credit-limited SaaS interface
+6.2 Scrape History table
+Category | Cities (Austin + 24 more, hover shows all) | Pages | Leads | Date | Actions
+
+6.3 Lead Table
+Columns: business | owner | email | city | confidence | verified | source
+Row expand → reasoning JSON + steps
+Bulk actions: Export CSV, Sync to Meadowlark, Re-enrich, Delete
+
+────────────────────────────────────────────────────────────────────────
+
+7 Credit Logic
+Action Credits −
+Email enrichment success 1
+Email verification 1
+All decrements via stored procedure rpc_deduct_credits() to avoid race conditions.
+
+────────────────────────────────────────────────────────────────────────
+
+8 Environment Variables
+SERPER_API_KEY, KITT_API_KEY, PROSPEO_API_KEY,
+KASPR_API_KEY / SKRAPP_API_KEY / APOLLO_API_KEY,
+LEADMAGIC_TOKEN, DROPCONTACT_API_KEY,
+OPENAI_API_KEY (for GPT-4o), FIRECRAWL_API_KEY, MV_API_KEY,
+MEADOWLARK_API_KEY
+
+────────────────────────────────────────────────────────────────────────
+
+9 Non-Goals (MVP)
+• Automated billing / Stripe
+• Team (multi-seat) accounts
+• Advanced analytics dashboard
+• Internationalisation (i18n)
+
+────────────────────────────────────────────────────────────────────────
+
+10 Exit Criteria
+
+End-to-end run yields ≥ 90 % of leads with verified email and owner_confidence ≥ 0.90
+
+Blended variable cost ≤ $0.01 per verified lead (1 k scale)
+
+All DB CRUD blocked by RLS outside owner’s user_id
+
+Note C – Waterfall TODOs
+If a provider (Kaspr / Skrapp / Apollo) is not yet integrated, leave // TODO in code; not a PRD defect.
+
+Note D – RLS double-check
+Before launch, run Supabase RLS tester to confirm batch & lead rows cannot be accessed by other users.
+
+────────────────────────────────────────────────────────────────────────
+
+END OF PRD

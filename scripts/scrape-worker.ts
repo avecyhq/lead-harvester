@@ -38,6 +38,23 @@ function extractStreet(address: string): string {
   return parts.length >= 1 ? parts[0].trim() : '';
 }
 
+// Retry helper with exponential backoff
+async function retry<T>(fn: () => Promise<T>, maxRetries = 3, baseDelay = 1000): Promise<T> {
+  let attempt = 0;
+  let lastError;
+  while (attempt < maxRetries) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      const delay = baseDelay * Math.pow(2, attempt);
+      await new Promise(res => setTimeout(res, delay));
+      attempt++;
+    }
+  }
+  throw lastError;
+}
+
 async function processJob(job: any) {
   console.log(`[JOB] Processing job ${job.id} for user ${job.user_id}`);
   try {
@@ -51,30 +68,40 @@ async function processJob(job: any) {
       let cityLeads: any[] = [];
       for (const page of pages) {
         try {
-          const leads = await fetchSerperBusinesses({ category, city, page, batchId });
+          // Use built-in retry logic in fetchSerperBusinesses
+          const leads = await fetchSerperBusinesses({ category, city, page, batchId, maxRetries: 3, retryDelay: 1500 });
           cityLeads.push(...leads);
         } catch (err) {
           console.error(`[JOB ${job.id}] Error scraping ${category} in ${city} page ${page}:`, err);
+          // If all retries fail, mark job as failed and stop further processing
+          await supabase.from('scrape_jobs').update({ status: 'failed', error: `Serper API failed for ${category} in ${city} page ${page}: ${String(err)}` }).eq('id', job.id);
+          return;
         }
       }
       // Deduplicate leads by business_name + address
       const uniqueLeads = Array.from(new Map(cityLeads.map(lead => [lead.business_name + lead.address, lead])).values());
-      // Insert batch
-      const { error: batchError } = await supabase.from('batches').insert([
-        {
-          id: batchId,
-          user_id,
-          business_category: category,
-          location: city,
-          lead_count: uniqueLeads.length,
-          created_at: new Date().toISOString(),
-        },
-      ]);
-      if (batchError) {
+      // Retry batch insert
+      try {
+        await retry(async () => {
+          const res = await supabase.from('batches').insert([
+            {
+              id: batchId,
+              user_id,
+              business_category: category,
+              location: city,
+              lead_count: uniqueLeads.length,
+              created_at: new Date().toISOString(),
+            },
+          ]);
+          if (res.error) throw res.error;
+          return res;
+        }, 3, 1000);
+      } catch (batchError) {
         console.error(`[JOB ${job.id}] Batch insert failed:`, batchError);
-        continue;
+        await supabase.from('scrape_jobs').update({ status: 'failed', error: `Batch insert failed for ${city}: ${String(batchError)}` }).eq('id', job.id);
+        return;
       }
-      // Insert leads
+      // Retry leads insert
       const leadsToInsert = uniqueLeads.map(lead => ({
         ...lead,
         street: lead.address ? extractStreet(lead.address) : '',
@@ -86,9 +113,16 @@ async function processJob(job: any) {
         created_at: new Date().toISOString(),
       }));
       if (leadsToInsert.length > 0) {
-        const { error: leadError } = await supabase.from('leads').insert(leadsToInsert);
-        if (leadError) {
+        try {
+          await retry(async () => {
+            const res = await supabase.from('leads').insert(leadsToInsert);
+            if (res.error) throw res.error;
+            return res;
+          }, 3, 1000);
+        } catch (leadError) {
           console.error(`[JOB ${job.id}] Lead insert failed:`, leadError);
+          await supabase.from('scrape_jobs').update({ status: 'failed', error: `Lead insert failed for ${city}: ${String(leadError)}` }).eq('id', job.id);
+          return;
         }
       }
       allBatches.push(batchId);

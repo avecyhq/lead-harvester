@@ -28,6 +28,16 @@ export interface Lead {
   created_at: string
   user_id?: string
   exported_at?: string | null
+  // Enrichment fields
+  owner_name?: string
+  owner_confidence?: number
+  owner_reasoning?: string
+  owner_source?: string
+  email?: string
+  email_verified?: boolean
+  linkedin_url?: string
+  facebook_url?: string
+  instagram_url?: string
   // Add more fields as needed from enrichment, e.g. owner_name, linkedin_url, etc.
 }
 

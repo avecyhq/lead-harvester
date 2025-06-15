@@ -38,7 +38,12 @@ export async function POST(req: Request) {
 
     // Remove internal IDs from export
     const exportFields = [
-      'business_name', 'street', 'city', 'state', 'zip', 'phone', 'category', 'average_rating', 'number_of_reviews', 'website', 'google_maps_url', 'created_at'
+      'business_name', 'street', 'city', 'state', 'zip', 'phone', 'category', 'average_rating', 'number_of_reviews', 'website', 'google_maps_url', 'created_at',
+      // Enrichment fields
+      'owner_name', 'owner_confidence', 'owner_reasoning', 'owner_source',
+      'email', 'email_verified',
+      'linkedin_url', 'facebook_url', 'instagram_url',
+      'enrichment_status', 'sync_status'
     ];
     const parser = new Parser({ fields: exportFields });
     const csv = parser.parse(leads);

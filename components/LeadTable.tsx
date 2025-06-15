@@ -69,6 +69,16 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, onEdit, onDelete, selected
               />
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => handleSort('business_name')}>Business Name</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Confidence</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Verified</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LinkedIn</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Facebook</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Instagram</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrichment</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sync</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Street</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">City</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">State</th>
@@ -95,6 +105,16 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads, onEdit, onDelete, selected
                 />
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{lead.business_name}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.owner_name || '-'}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.email || '-'}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.owner_confidence !== undefined ? lead.owner_confidence : '-'}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.email_verified === true ? '✅' : lead.email_verified === false ? '❌' : '-'}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.owner_source || '-'}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-700">{lead.linkedin_url ? (<a href={lead.linkedin_url} target="_blank" rel="noopener noreferrer" className="hover:underline">LinkedIn</a>) : '-'}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-700">{lead.facebook_url ? (<a href={lead.facebook_url} target="_blank" rel="noopener noreferrer" className="hover:underline">Facebook</a>) : '-'}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-700">{lead.instagram_url ? (<a href={lead.instagram_url} target="_blank" rel="noopener noreferrer" className="hover:underline">Instagram</a>) : '-'}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.enrichment_status || '-'}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.sync_status || '-'}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.street || '-'}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.city || '-'}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lead.state || '-'}</td>
